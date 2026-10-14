@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Что играем сегодня?</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@800&family=Onest:wght@500;700&display=swap">
+<style>
+:root{--bg:#e9e4ff;--ink:#1d1340;--card:#fff;--red:#ff5a47;--mint:#2fd9a8;--butter:#ffd84d;--muted:#5a4f86;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1238;--ink:#f3efff;--card:#2a1f5c;--muted:#b9aef0}}
+:root[data-theme="dark"]{--bg:#1a1238;--ink:#f3efff;--card:#2a1f5c;--muted:#b9aef0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:500 1.05rem/1.5 Onest,system-ui,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:32px 20px 56px}
+h1{font:800 clamp(2rem,7vw,4.2rem)/1 Unbounded,system-ui,sans-serif;margin:0 0 10px;text-wrap:balance}
+.lead{color:var(--muted);margin:0 0 32px;max-width:48ch}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.wheelbox{position:relative;max-width:480px;width:100%;margin:0 auto}
+canvas{width:100%;height:auto;display:block;border-radius:50%;border:4px solid var(--ink);box-shadow:8px 8px 0 var(--ink);background:var(--card)}
+.pin{position:absolute;left:50%;top:-14px;width:0;height:0;transform:translateX(-50%);border:16px solid transparent;border-top:30px solid var(--red);filter:drop-shadow(0 3px 0 var(--ink));z-index:2}
+.hub{position:absolute;left:50%;top:50%;width:92px;height:92px;transform:translate(-50%,-50%);border-radius:50%;border:4px solid var(--ink);background:var(--butter);color:#1d1340;font:800 .9rem Unbounded,sans-serif;cursor:pointer;box-shadow:0 4px 0 var(--ink)}
+.hub:active{transform:translate(-50%,-46%);box-shadow:none}
+.card{background:var(--card);border:4px solid var(--ink);border-radius:18px;padding:20px;box-shadow:6px 6px 0 var(--ink);margin-bottom:24px}
+.card h2{font:800 1.15rem Unbounded,sans-serif;margin:0 0 12px}
+.result{background:var(--red);color:#fff;border-color:var(--ink)}
+.result h2{color:#fff}
+.result p{font:800 1.7rem/1.15 Unbounded,sans-serif;margin:0;overflow-wrap:anywhere}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;padding:0;list-style:none}
+.chips li{display:flex;align-items:center;gap:6px;background:var(--mint);color:#1d1340;border:3px solid var(--ink);border-radius:999px;padding:2px 6px 2px 12px;font-weight:700}
+.chips button{border:0;background:#1d1340;color:#fff;width:24px;height:24px;border-radius:50%;cursor:pointer;line-height:1;font-size:1rem}
+form{display:flex;gap:8px}
+input{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--bg);border:3px solid var(--ink);border-radius:12px;padding:8px 12px}
+.b{font:800 .95rem Unbounded,sans-serif;background:var(--butter);color:#1d1340;border:3px solid var(--ink);border-radius:12px;padding:8px 14px;cursor:pointer;box-shadow:0 3px 0 var(--ink)}
+.b:active{transform:translateY(3px);box-shadow:none}
+button:focus-visible,input:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Что играем сегодня?</h1>
+  <p class="lead">Добавь игры и друзей, крути колесо, и спор окончен.</p>
+  <div class="grid">
+    <div>
+      <div class="wheelbox">
+        <div class="pin"></div>
+        <canvas id="cv" width="560" height="560" role="img" aria-label="Колесо с играми"></canvas>
+        <button class="hub" id="spin">Крутить</button>
+      </div>
+    </div>
+    <div>
+      <div class="card result" aria-live="polite"><h2>Сегодня играем</h2><p id="res">Нажми «Крутить»</p></div>
+      <div class="card"><h2>Игры</h2><ul class="chips" id="games"></ul>
+        <form id="fg"><input id="ig" placeholder="Название игры" maxlength="24" aria-label="Название игры"><button class="b">Добавить</button></form></div>
+      <div class="card"><h2>Друзья</h2><ul class="chips" id="fr"></ul>
+        <form id="ff"><input id="if" placeholder="Имя друга" maxlength="16" aria-label="Имя друга"><button class="b">Добавить</button></form>
+        <p style="margin:14px 0 0"><button class="b" id="cap" type="button">Выбрать капитана</button> <span id="capres" style="font-weight:700"></span></p></div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+var games=['Minecraft','Roblox','Among Us','Brawl Stars','Fortnite'],friends=['Я','Друг 1','Друг 2'];
+var cv=document.getElementById('cv'),x=cv.getContext('2d'),rot=0,busy=false;
+var cols=['#ff5a47','#2fd9a8','#ffd84d','#7b6cff','#ff8fd0','#4cc9ff'];
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function draw(){
+  var W=cv.width,r=W/2,n=games.length;x.clearRect(0,0,W,W);
+  if(!n){x.fillStyle=css('--ink');x.font='700 28px Onest,sans-serif';x.textAlign='center';x.fillText('Добавь игры',r,r);return}
+  var a=2*Math.PI/n;
+  for(var i=0;i<n;i++){
+    x.beginPath();x.moveTo(r,r);x.arc(r,r,r-4,rot+i*a,rot+(i+1)*a);x.closePath();
+    x.fillStyle=cols[i%cols.length];x.fill();x.lineWidth=5;x.strokeStyle='#1d1340';x.stroke();
+    x.save();x.translate(r,r);x.rotate(rot+(i+.5)*a);x.textAlign='right';x.fillStyle='#1d1340';
+    x.font='800 '+(n>8?20:26)+'px Unbounded,Onest,sans-serif';x.fillText(games[i],r-26,9);x.restore();
+  }
+}
+function list(id,arr){
+  var u=document.getElementById(id);u.innerHTML='';
+  arr.forEach(function(t,i){
+    var li=document.createElement('li'),s=document.createElement('span'),b=document.createElement('button');
+    s.textContent=t;b.textContent='\u00d7';b.setAttribute('aria-label','Удалить '+t);
+    b.onclick=function(){arr.splice(i,1);render()};
+    li.appendChild(s);li.appendChild(b);u.appendChild(li);
+  });
+}
+function render(){list('games',games);list('fr',friends);draw()}
+function add(f,inp,arr){document.getElementById(f).onsubmit=function(e){
+  e.preventDefault();var el=document.getElementById(inp),v=el.value.trim();
+  if(v&&arr.length<14){arr.push(v);el.value='';render()}}}
+add('fg','ig',games);add('ff','if',friends);
+var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+document.getElementById('spin').onclick=function(){
+  if(busy||games.length<2)return;busy=true;
+  var start=rot,total=Math.PI*2*(reduce?1:5+Math.random()*3)+Math.random()*Math.PI*2,dur=reduce?400:4200,t0=performance.now();
+  function step(t){
+    var p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,4);rot=start+total*e;draw();
+    if(p<1)requestAnimationFrame(step);else{
+      busy=false;var a=2*Math.PI/games.length,ang=((-Math.PI/2-rot)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+      document.getElementById('res').textContent=games[Math.floor(ang/a)];
+    }}
+  requestAnimationFrame(step);
+};
+document.getElementById('cap').onclick=function(){
+  document.getElementById('capres').textContent=friends.length?'Капитан: '+friends[Math.floor(Math.random()*friends.length)]:'Добавь друзей';
+};
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(draw);
+render();
+})();
+</script>
+</body>
+</html>
